@@ -1,34 +1,55 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const app = express();
+const port = process.env.PORT || 10000;
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 
-const PORT = process.env.PORT || 10000;
+const leads = {};
 
 app.post('/', (req, res) => {
-  const data = req.body;
-  console.log("✅ Lead recebido:");
+  const body = req.body;
 
-  const metadata = data.metadata || [];
+  if (!body || !body.id || !body.metadata) {
+    return res.status(400).send('❌ Payload inválido');
+  }
 
-  // Extrai valores na ordem (ajuste se necessário)
-  const nome = metadata[0] ? Object.values(metadata[0])[0] : "não informado";
-  const email = metadata[1] ? Object.values(metadata[1])[0] : "não informado";
-  const telefone = metadata[2] ? Object.values(metadata[2])[0] : "não informado";
+  const leadId = body.id;
+  const metadatas = body.metadata;
 
-  console.log("Nome:", nome);
-  console.log("Email:", email);
-  console.log("Telefone:", telefone);
+  if (!leads[leadId]) {
+    leads[leadId] = { nome: null, email: null, telefone: null };
+  }
 
-  res.status(200).send('Lead recebido com sucesso!');
+  metadatas.forEach(item => {
+    const [key, value] = Object.entries(item)[0];
+    const valor = (value || '').toLowerCase();
+
+    if (valor.includes('@')) {
+      leads[leadId].email = value;
+    } else if (valor.match(/^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/) || valor.includes('9999')) {
+      leads[leadId].telefone = value;
+    } else if (valor !== 'click') {
+      leads[leadId].nome = value;
+    }
+  });
+
+  const lead = leads[leadId];
+  console.log('✅ Lead recebido:');
+  console.log('Nome:', lead.nome || 'não informado');
+  console.log('Email:', lead.email || 'não informado');
+  console.log('Telefone:', lead.telefone || 'não informado');
+
+  if (lead.nome && lead.email && lead.telefone) {
+    console.log('🎯 LEAD COMPLETO:', lead);
+  }
+
+  res.sendStatus(200);
 });
 
 app.get('/', (req, res) => {
   res.send('✅ Webhook da Cakto está online');
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+app.listen(port, () => {
+  console.log(`🚀 Servidor rodando na porta ${port}`);
 });
